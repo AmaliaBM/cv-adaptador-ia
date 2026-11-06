@@ -1,3 +1,13 @@
+---
+title: Adaptador De CV
+emoji: 💼
+colorFrom: yellow
+colorTo: blue
+sdk: streamlit
+app_file: app.py
+pinned: false
+---
+
 # 💼 Adaptador Estratégico de CV con IA
 
 Un producto de software de código abierto desarrollado en **Python** diseñado con un propósito social: apoyar a personas en situación de desempleo. La aplicación analiza los requisitos técnicos de una oferta de trabajo concreta y reescribe de forma óptima el perfil y la experiencia del usuario. 
