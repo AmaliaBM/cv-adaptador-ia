@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 import re
 import random
@@ -30,8 +31,11 @@ usos_guardados = cookies.get('cv_usos_gratuitos')
 usos_guardados = int(usos_guardados) if usos_guardados is not None else 0
 
 # Intentar obtener la API Key de la administradora
+# Compatibilidad híbrida para leer la clave oculta (Streamlit Secrets u OS Environment en Render)
 if "GROQ_API_KEY" in st.secrets:
     api_key_servidor = st.secrets["GROQ_API_KEY"]
+elif os.environ.get("GROQ_API_KEY"):
+    api_key_servidor = os.environ.get("GROQ_API_KEY")
 else:
     api_key_servidor = None
 
