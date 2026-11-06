@@ -73,7 +73,7 @@ if not st.session_state['verificado_humano']:
         st.rerun()
 
     st.markdown("<br><br>", unsafe_allow_html=True)
-    col_inf, col_box, col_sup = st.columns()
+    col_inf, col_box, col_sup = st.columns(3)
     
     with col_box:
         st.markdown(
