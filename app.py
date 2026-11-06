@@ -50,12 +50,24 @@ if not api_key_servidor and os.environ.get("GROQ_API_KEY"):
     api_key_servidor = os.environ.get("GROQ_API_KEY")
 
 def limpiar_html_para_txt(texto_html):
-    """Elimina etiquetas HTML para compatibilidad con sistemas ATS."""
+    """
+    Elimina todas las etiquetas HTML del texto para dejar un archivo .txt limpio.
+    También tritura y remueve fragmentos de etiquetas que hayan quedado cortadas
+    o rotas al final del texto debido al límite de tokens del modelo.
+    """
     if not texto_html:
         return ""
+    
+    # Paso 1: Eliminar etiquetas HTML completas estándar (ej: <span>, <ul>, etc.)
     patron_html = re.compile(r'<[^>]+>')
-    return patron_html.sub('', texto_html)
-
+    texto_limpio = patron_html.sub('', texto_html)
+    
+    # Paso 2: Limpar residuos de etiquetas cortadas o rotas al final del archivo (ej: </ul, </sp, <sp)
+    # Busca cualquier símbolo < o </ seguido de letras sueltas al final del string
+    patron_residuos = re.compile(r'</?[a-zA-Z]*\s*$')
+    texto_limpio = patron_residuos.sub('', texto_limpio)
+    
+    return texto_limpio.strip()
 
 # =========================================================================
 # ESCENARIO A: PANTALLA DE VERIFICACIÓN ANTIBOTS (ACCESO PRINCIPAL)
