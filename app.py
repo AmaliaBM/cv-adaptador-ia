@@ -1,8 +1,8 @@
-import os
 import streamlit as st
 import re
 import random
 import time
+import os
 from streamlit_cookies_controller import CookieController
 from lector_pdf import extraer_texto_pdf
 from ia_motor import adaptar_cv_con_ia
@@ -30,14 +30,20 @@ cookies = CookieController()
 usos_guardados = cookies.get('cv_usos_gratuitos')
 usos_guardados = int(usos_guardados) if usos_guardados is not None else 0
 
-# Intentar obtener la API Key de la administradora
-# Compatibilidad híbrida para leer la clave oculta (Streamlit Secrets u OS Environment en Render)
-if "GROQ_API_KEY" in st.secrets:
-    api_key_servidor = st.secrets["GROQ_API_KEY"]
-elif os.environ.get("GROQ_API_KEY"):
+# LÓGICA DE CONTROL HÍBRIDA CON MANEJO DE EXCEPCIONES PARA RENDER
+api_key_servidor = None
+
+try:
+    # 1. Intentamos leer desde el sistema nativo de secretos de Streamlit (Local)
+    if "GROQ_API_KEY" in st.secrets:
+        api_key_servidor = st.secrets["GROQ_API_KEY"]
+except Exception:
+    # 2. Si st.secrets no existe o lanza un error (como en Render), pasamos silenciosamente
+    pass
+
+# 3. Si no se encontró en st.secrets, buscamos en las Variables de Entorno del sistema operativo (Render)
+if not api_key_servidor and os.environ.get("GROQ_API_KEY"):
     api_key_servidor = os.environ.get("GROQ_API_KEY")
-else:
-    api_key_servidor = None
 
 def limpiar_html_para_txt(texto_html):
     """Elimina etiquetas HTML para compatibilidad con sistemas ATS."""
@@ -67,7 +73,7 @@ if not st.session_state['verificado_humano']:
         st.rerun()
 
     st.markdown("<br><br>", unsafe_allow_html=True)
-    col_inf, col_box, col_sup = st.columns([1, 2, 1])
+    col_inf, col_box, col_sup = st.columns()
     
     with col_box:
         st.markdown(
@@ -180,7 +186,7 @@ with col2:
                     st.error(texto_cv)
                 else:
                     try:
-                        cv_generado = adaptar_cv_con_ia(texto_cv, texto_oferta, api_key_a_usar)
+                        cv_generado = tratar_cv_con_ia = adaptar_cv_con_ia(texto_cv, texto_oferta, api_key_a_usar)
                         
                         if cv_generado.strip():
                             st.session_state['cv_html'] = cv_generado
@@ -205,13 +211,13 @@ with col2:
     # RENDERIZADO Y DESCARGA
     if 'cv_html' in st.session_state and st.session_state['cv_html']:
         st.write("### Vista Previa de Cambios:")
-        st.html(st.session_state['cv_html'])
-        st.divider()
-        cv_texto_plano = limpiar_html_para_txt(st.session_state['cv_html'])
-        st.download_button(
-            label="💾 Descargar CV en Texto Plano Limpio (.txt)",
-            data=cv_texto_plano,
-            file_name="CV_Optimizado_ATS.txt",
-            mime="text/plain",
-            use_container_width=True
-        )
+st.html(st.session_state['cv_html'])
+st.divider()
+cv_texto_plano = limpiar_html_para_txt(st.session_state['cv_html'])
+st.download_button(
+label="💾 Descargar CV en Texto Plano Limpio (.txt)",
+data=cv_texto_plano,
+file_name="CV_Optimizado_ATS.txt",
+mime="text/plain",
+use_container_width=True
+);
