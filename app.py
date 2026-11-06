@@ -18,6 +18,10 @@ st.set_page_config(
 if 'verificado_humano' not in st.session_state:
     st.session_state['verificado_humano'] = False
 
+# Inicializar de forma segura la variable del CV para evitar KeyError en Render
+if 'cv_html' not in st.session_state:
+    st.session_state['cv_html'] = None
+
 # Inicializar números del captcha si no existen
 if 'captcha_num1' not in st.session_state:
     st.session_state['captcha_num1'] = random.randint(1, 9)
