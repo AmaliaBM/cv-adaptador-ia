@@ -3,3 +3,4 @@ groq
 pdfplumber
 streamlit-cookies-controller
 reportlab
+xhtml2pdf
