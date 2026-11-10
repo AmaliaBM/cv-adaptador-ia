@@ -80,74 +80,74 @@ class _TextoDesdeHTML(HTMLParser):
         return texto.strip()
 
 
-def limpiar_html_para_pdf(texto_html: str) -> str:
-    """Convierte el HTML devuelto por la IA en texto legible para el PDF."""
+def limpiar_todo_para_ats(texto_html):
+    """Limpia profundamente HTML, Markdown, enlaces y comentarios finales."""
     if not texto_html:
         return ""
-    parser = _TextoDesdeHTML()
-    try:
-        parser.feed(texto_html)
-        parser.close()
-        return parser.texto()
-    except Exception:
-        # Fallback conservador: elimina etiquetas si el HTML está mal formado.
-        return re.sub(r"<[^>]*>", "", texto_html).strip()
+    
+    # 1. Eliminar etiquetas HTML completas
+    texto = re.compile(r'<[^>]+>').sub('', texto_html)
+    
+    # 2. Eliminar residuos de etiquetas HTML cortadas al final
+    texto = re.compile(r'</?[a-zA-Z]*\s*$').sub('', texto)
+    
+    # 3. Eliminar marcadores de Markdown comunes (negritas) sin romper palabras
+    texto = texto.replace('**', '').replace('__', '')
+    
+    # 4. Eliminar almohadillas de encabezados (#, ##) al inicio de las líneas
+    texto = re.compile(r'^#+\s+', re.MULTILINE).sub('', texto)
+    
+    # 5. Limpiar formatos de enlaces Markdown [Texto](URL) dejando solo el Texto
+    texto = re.compile(r'\[([^\]]+)\]\([^\)]+\)').sub(r'\1', texto)
+    
+    # 6. Cortar comentarios finales intrusivos de la IA
+    patrones_corte = [
+        r"(?i)\bEste CV ha sido adaptado\b",
+        r"(?i)\bNota:\b",
+        r"(?i)\bAlineación con\b",
+        r"(?i)\bEspero que este currículum\b"
+    ]
+    for patron in patrones_corte:
+        partes = re.split(patron, texto, maxsplit=1)
+        if len(partes) > 1:
+            texto = partes[0]
+            
+    return texto.strip()
 
 
-def generar_pdf_ats(texto_cv: str) -> BytesIO:
-    """Genera un PDF nativo, seleccionable e indexable por sistemas ATS."""
+def generar_pdf_ats_puro(texto_cv):
+    """Genera un PDF A4 nativo en una sola columna con texto plano seleccionable."""
     buffer = BytesIO()
+    # Forzamos formato A4 con márgenes estándar de una pulgada (54 puntos)
     doc = SimpleDocTemplate(
-        buffer,
-        pagesize=letter,
-        rightMargin=40,
-        leftMargin=40,
-        topMargin=40,
-        bottomMargin=40,
-        title="CV optimizado",
+        buffer, 
+        pagesize=A4, 
+        rightMargin=54, 
+        leftMargin=54, 
+        topMargin=54, 
+        bottomMargin=54
     )
-
-    estilos = getSampleStyleSheet()
-    normal = ParagraphStyle(
-        "ATS_Normal",
-        parent=estilos["Normal"],
-        fontName="Helvetica",
-        fontSize=10,
-        leading=14,
-        alignment=TA_LEFT,
-        spaceAfter=6,
+    styles = getSampleStyleSheet()
+    
+    # Estilo ATS limpio: tipografía estándar, interlineado fluido y alineación izquierda
+    estilo_texto = ParagraphStyle(
+        'ATS_Texto', 
+        parent=styles['Normal'], 
+        fontName='Helvetica', 
+        fontSize=10, 
+        leading=15, 
+        alignment=TA_LEFT, 
+        spaceAfter=6
     )
-    h1 = ParagraphStyle(
-        "ATS_H1", parent=normal, fontName="Helvetica-Bold",
-        fontSize=14, leading=18, spaceBefore=10, spaceAfter=8,
-    )
-    h2 = ParagraphStyle(
-        "ATS_H2", parent=normal, fontName="Helvetica-Bold",
-        fontSize=12, leading=16, spaceBefore=8, spaceAfter=6,
-    )
-    negrita = ParagraphStyle(
-        "ATS_Negrita", parent=normal, fontName="Helvetica-Bold"
-    )
-
+    
     story = []
-    for linea in (texto_cv or "").splitlines():
-        linea = linea.strip()
-        if not linea:
-            story.append(Spacer(1, 6))
+    for linea in texto_cv.split('\n'):
+        linea_limpia = linea.strip()
+        if not linea_limpia:
+            story.append(Spacer(1, 8))
             continue
-
-        estilo = normal
-        if linea.startswith("# "):
-            linea, estilo = linea[2:].strip(), h1
-        elif linea.startswith("## "):
-            linea, estilo = linea[3:].strip(), h2
-        elif linea.startswith("**") and linea.endswith("**") and len(linea) > 4:
-            linea, estilo = linea[2:-2].strip(), negrita
-
-        # Paragraph interpreta marcado XML propio: escapar el texto evita
-        # que contenido procedente de la IA introduzca etiquetas arbitrarias.
-        story.append(Paragraph(escape(linea), estilo))
-
+        story.append(Paragraph(linea_limpia, estilo_texto))
+        
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -413,7 +413,9 @@ with col2:
 # ---------------------------------------------------------------------
 if st.session_state.cv_html:
     st.write("### Vista previa del CV adaptado")
-    texto_cv_limpio = limpiar_html_para_pdf(st.session_state.cv_html)
+    
+    # MODIFICACIÓN: Llamamos a la nueva función de limpieza profunda (quita HTML, Markdown y comentarios)
+    texto_cv_limpio = limpiar_todo_para_ats(st.session_state.cv_html)
 
     if texto_cv_limpio:
         st.text_area(
@@ -424,10 +426,12 @@ if st.session_state.cv_html:
         )
 
         try:
-            pdf_buffer = generar_pdf_ats(texto_cv_limpio)
+            # MODIFICACIÓN: Llamamos al nuevo generador de PDF A4 en una sola columna
+            pdf_buffer = generar_pdf_ats_puro(texto_cv_limpio)
+            
             st.download_button(
                 label="💾 Descargar CV optimizado en PDF",
-                data=pdf_buffer.getvalue(),
+                data=pdf_buffer, # Pasamos el flujo binario optimizado directamente
                 file_name="CV_Optimizado_ATS.pdf",
                 mime="application/pdf",
                 use_container_width=True,
