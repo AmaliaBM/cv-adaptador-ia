@@ -1,239 +1,424 @@
-import streamlit as st
-import re
-import random
-import time
 import os
+import random
+import re
+import time
+from html.parser import HTMLParser
+from io import BytesIO
+from xml.sax.saxutils import escape
+
+import streamlit as st
 from streamlit_cookies_controller import CookieController
+
 from lector_pdf import extraer_texto_pdf
 from ia_motor import adaptar_cv_con_ia
 
-# Configuración de la página web
+from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
+
+
+# ---------------------------------------------------------------------
+# Configuración
+# ---------------------------------------------------------------------
 st.set_page_config(
     page_title="Adaptador de CV Solidario",
     page_icon="💼",
-    layout="wide"
+    layout="wide",
 )
 
-# 1. CONTROL DE NAVEGACIÓN Y ANTIBOTS
-if 'verificado_humano' not in st.session_state:
-    st.session_state['verificado_humano'] = False
+MAX_PDF_BYTES = 10 * 1024 * 1024  # 10 MB
+COOKIE_USOS = "cv_usos_gratuitos"
+TIEMPO_CAPTCHA = 30
 
-# Inicializar de forma segura la variable del CV para evitar KeyError en Render
-if 'cv_html' not in st.session_state:
-    st.session_state['cv_html'] = None
 
-# Inicializar números del captcha si no existen
-if 'captcha_num1' not in st.session_state:
-    st.session_state['captcha_num1'] = random.randint(1, 9)
-    st.session_state['captcha_num2'] = random.randint(1, 9)
-    st.session_state['captcha_resultado'] = st.session_state['captcha_num1'] + st.session_state['captcha_num2']
-    st.session_state['captcha_inicio_tiempo'] = time.time()
+# ---------------------------------------------------------------------
+# Validación y transformación de contenido
+# ---------------------------------------------------------------------
+def validar_firma_pdf(archivo) -> bool:
+    """Comprueba la firma PDF y restaura la posición del archivo."""
+    try:
+        posicion = archivo.tell()
+        archivo.seek(0)
+        firma = archivo.read(5)
+        archivo.seek(posicion)
+        return firma == b"%PDF-"
+    except Exception:
+        return False
 
-# Inicializamos el controlador de cookies del navegador
-cookies = CookieController()
-usos_guardados = cookies.get('cv_usos_gratuitos')
-usos_guardados = int(usos_guardados) if usos_guardados is not None else 0
 
-# LÓGICA DE CONTROL HÍBRIDA CON MANEJO DE EXCEPCIONES PARA RENDER
-api_key_servidor = None
+class _TextoDesdeHTML(HTMLParser):
+    """Extrae texto de HTML sin conservar etiquetas ni atributos."""
 
-try:
-    # 1. Intentamos leer desde el sistema nativo de secretos de Streamlit (Local)
-    if "GROQ_API_KEY" in st.secrets:
-        api_key_servidor = st.secrets["GROQ_API_KEY"]
-except Exception:
-    # 2. Si st.secrets no existe o lanza un error (como en Render), pasamos silenciosamente
-    pass
+    BLOQUES = {
+        "p", "div", "br", "li", "ul", "ol", "h1", "h2", "h3",
+        "h4", "section", "article", "tr",
+    }
 
-# 3. Si no se encontró en st.secrets, buscamos en las Variables de Entorno del sistema operativo (Render)
-if not api_key_servidor and os.environ.get("GROQ_API_KEY"):
-    api_key_servidor = os.environ.get("GROQ_API_KEY")
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.partes = []
 
-def limpiar_html_para_txt(texto_html):
-    """
-    Elimina todas las etiquetas HTML del texto para dejar un archivo .txt limpio.
-    También tritura y remueve fragmentos de etiquetas que hayan quedado cortadas
-    o rotas al final del texto debido al límite de tokens del modelo.
-    """
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in self.BLOQUES:
+            self.partes.append("\n")
+
+    def handle_endtag(self, tag):
+        if tag.lower() in self.BLOQUES:
+            self.partes.append("\n")
+
+    def handle_data(self, data):
+        self.partes.append(data)
+
+    def texto(self):
+        texto = "".join(self.partes)
+        texto = texto.replace("\xa0", " ")
+        texto = re.sub(r"[ \t]+\n", "\n", texto)
+        texto = re.sub(r"\n[ \t]+", "\n", texto)
+        texto = re.sub(r"\n{3,}", "\n\n", texto)
+        return texto.strip()
+
+
+def limpiar_html_para_pdf(texto_html: str) -> str:
+    """Convierte el HTML devuelto por la IA en texto legible para el PDF."""
     if not texto_html:
         return ""
-    
-    # Paso 1: Eliminar etiquetas HTML completas estándar (ej: <span>, <ul>, etc.)
-    patron_html = re.compile(r'<[^>]+>')
-    texto_limpio = patron_html.sub('', texto_html)
-    
-    # Paso 2: Limpar residuos de etiquetas cortadas o rotas al final del archivo (ej: </ul, </sp, <sp)
-    # Busca cualquier símbolo < o </ seguido de letras sueltas al final del string
-    patron_residuos = re.compile(r'</?[a-zA-Z]*\s*$')
-    texto_limpio = patron_residuos.sub('', texto_limpio)
-    
-    return texto_limpio.strip()
+    parser = _TextoDesdeHTML()
+    try:
+        parser.feed(texto_html)
+        parser.close()
+        return parser.texto()
+    except Exception:
+        # Fallback conservador: elimina etiquetas si el HTML está mal formado.
+        return re.sub(r"<[^>]*>", "", texto_html).strip()
 
-# =========================================================================
-# ESCENARIO A: PANTALLA DE VERIFICACIÓN ANTIBOTS (ACCESO PRINCIPAL)
-# =========================================================================
-if not st.session_state['verificado_humano']:
-    
-    # Calcular el tiempo transcurrido desde la generación del reto actual (Límite: 30 segundos)
-    tiempo_limite = 30
-    tiempo_transcurrido = time.time() - st.session_state['captcha_inicio_tiempo']
-    tiempo_restante = max(0, int(tiempo_limite - tiempo_transcurrido))
-    
-    # Si el tiempo expira, regeneramos los números de forma controlada al interactuar
-    if tiempo_restante <= 0:
-        st.session_state['captcha_num1'] = random.randint(1, 9)
-        st.session_state['captcha_num2'] = random.randint(1, 9)
-        st.session_state['captcha_resultado'] = st.session_state['captcha_num1'] + st.session_state['captcha_num2']
-        st.session_state['captcha_inicio_tiempo'] = time.time()
-        tiempo_restante = tiempo_limite
+
+def generar_pdf_ats(texto_cv: str) -> BytesIO:
+    """Genera un PDF nativo, seleccionable e indexable por sistemas ATS."""
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=40,
+        leftMargin=40,
+        topMargin=40,
+        bottomMargin=40,
+        title="CV optimizado",
+    )
+
+    estilos = getSampleStyleSheet()
+    normal = ParagraphStyle(
+        "ATS_Normal",
+        parent=estilos["Normal"],
+        fontName="Helvetica",
+        fontSize=10,
+        leading=14,
+        alignment=TA_LEFT,
+        spaceAfter=6,
+    )
+    h1 = ParagraphStyle(
+        "ATS_H1", parent=normal, fontName="Helvetica-Bold",
+        fontSize=14, leading=18, spaceBefore=10, spaceAfter=8,
+    )
+    h2 = ParagraphStyle(
+        "ATS_H2", parent=normal, fontName="Helvetica-Bold",
+        fontSize=12, leading=16, spaceBefore=8, spaceAfter=6,
+    )
+    negrita = ParagraphStyle(
+        "ATS_Negrita", parent=normal, fontName="Helvetica-Bold"
+    )
+
+    story = []
+    for linea in (texto_cv or "").splitlines():
+        linea = linea.strip()
+        if not linea:
+            story.append(Spacer(1, 6))
+            continue
+
+        estilo = normal
+        if linea.startswith("# "):
+            linea, estilo = linea[2:].strip(), h1
+        elif linea.startswith("## "):
+            linea, estilo = linea[3:].strip(), h2
+        elif linea.startswith("**") and linea.endswith("**") and len(linea) > 4:
+            linea, estilo = linea[2:-2].strip(), negrita
+
+        # Paragraph interpreta marcado XML propio: escapar el texto evita
+        # que contenido procedente de la IA introduzca etiquetas arbitrarias.
+        story.append(Paragraph(escape(linea), estilo))
+
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+
+def obtener_api_key_servidor():
+    """Lee la clave desde Streamlit Secrets o variables de entorno."""
+    try:
+        clave = st.secrets.get("GROQ_API_KEY")
+        if clave:
+            return str(clave).strip()
+    except Exception:
+        pass
+    return os.environ.get("GROQ_API_KEY", "").strip()
+
+
+def leer_usos_cookie(cookies) -> int:
+    """Lee la cookie sin permitir que un valor inválido rompa la aplicación."""
+    try:
+        valor = cookies.get(COOKIE_USOS)
+        usos = int(valor) if valor is not None else 0
+        return max(0, usos)
+    except (TypeError, ValueError, Exception):
+        return 0
+
+
+# ---------------------------------------------------------------------
+# Estado de sesión y CAPTCHA
+# ---------------------------------------------------------------------
+if "verificado_humano" not in st.session_state:
+    st.session_state.verificado_humano = False
+
+if "cv_html" not in st.session_state:
+    st.session_state.cv_html = None
+
+if "captcha_num1" not in st.session_state:
+    st.session_state.captcha_num1 = random.randint(1, 9)
+    st.session_state.captcha_num2 = random.randint(1, 9)
+    st.session_state.captcha_resultado = (
+        st.session_state.captcha_num1 + st.session_state.captcha_num2
+    )
+    st.session_state.captcha_inicio_tiempo = time.time()
+
+cookies = CookieController()
+usos_guardados = leer_usos_cookie(cookies)
+api_key_servidor = obtener_api_key_servidor()
+
+
+# ---------------------------------------------------------------------
+# Escenario A: verificación antibots
+# ---------------------------------------------------------------------
+if not st.session_state.verificado_humano:
+    transcurrido = time.time() - st.session_state.captcha_inicio_tiempo
+    restante = max(0, int(TIEMPO_CAPTCHA - transcurrido))
+
+    if restante <= 0:
+        st.session_state.captcha_num1 = random.randint(1, 9)
+        st.session_state.captcha_num2 = random.randint(1, 9)
+        st.session_state.captcha_resultado = (
+            st.session_state.captcha_num1 + st.session_state.captcha_num2
+        )
+        st.session_state.captcha_inicio_tiempo = time.time()
         st.rerun()
 
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col_inf, col_box, col_sup = st.columns(3)
-    
+    _, col_box, _ = st.columns(3)
     with col_box:
         st.markdown(
-            "<div style='text-align: center;'><h2>🛡️ Verificación de Seguridad</h2>"
-            "<p>Por favor, confirma que eres un humano para acceder a la herramienta solidaria.</p></div>",
-            unsafe_allow_html=True
+            "<div style='text-align:center'><h2>🛡️ Verificación de Seguridad</h2>"
+            "<p>Confirma que eres una persona para acceder a la herramienta.</p></div>",
+            unsafe_allow_html=True,
         )
-        
         st.divider()
-        
-        # Desafío matemático (ÚNICO espacio de escritura estable en pantalla)
-        mensaje_captcha = f"¿Cuánto es {st.session_state['captcha_num1']} + {st.session_state['captcha_num2']}?"
-        respuesta_usuario = st.number_input(mensaje_captcha, step=1, value=0, key="unico_input_captcha")
-        
-        # Visualizador de tiempo restante estilo Google (Barra de progreso fija por ciclo)
-        st.write(f"⏳ Este código de seguridad expira en aproximadamente: **{tiempo_restante} segundos**")
-        st.progress(tiempo_restante / tiempo_limite)
-        
-        st.markdown("<br>", unsafe_allow_html=True)
-        boton_acceder = st.button("🔓 Verificar y Entrar", type="primary", use_container_width=True)
-        
-        if boton_acceder:
-            # Control básico de velocidad para evitar clicks automáticos en milisegundos
-            if tiempo_transcurrido < 1.0:
-                st.error("🛑 Procesamiento demasiado rápido. Resuelve la operación con calma.")
-            elif respuesta_usuario != st.session_state['captcha_resultado']:
-                st.error("🛑 El resultado de la operación es incorrecto. Inténtalo de nuevo.")
+
+        pregunta = (
+            f"¿Cuánto es {st.session_state.captcha_num1} + "
+            f"{st.session_state.captcha_num2}?"
+        )
+        respuesta = st.number_input(
+            pregunta, step=1, value=0, key="unico_input_captcha"
+        )
+        st.write(f"⏳ El reto expira en aproximadamente: **{restante} segundos**")
+        st.progress(restante / TIEMPO_CAPTCHA)
+
+        if st.button("🔓 Verificar y Entrar", type="primary", use_container_width=True):
+            transcurrido = time.time() - st.session_state.captcha_inicio_tiempo
+            if transcurrido < 1:
+                st.error("🛑 Resuelve la operación con calma.")
+            elif respuesta != st.session_state.captcha_resultado:
+                st.error("🛑 El resultado es incorrecto. Inténtalo de nuevo.")
             else:
-                # Éxito: Autorizado
-                st.session_state['verificado_humano'] = True
+                st.session_state.verificado_humano = True
                 st.rerun()
-                
-    st.stop()  # Detiene la carga de la aplicación si el usuario no está verificado
+
+    st.stop()
 
 
-# =========================================================================
-# ESCENARIO B: APLICACIÓN PRINCIPAL (ACCESO CONCEDIDO)
-# =========================================================================
-
-# TÍTULO Y DESCRIPCIÓN
+# ---------------------------------------------------------------------
+# Escenario B: aplicación principal
+# ---------------------------------------------------------------------
 st.title("💼 Adaptador de CV con IA (100% Gratuito)", anchor=False)
-st.subheader("Optimiza tu currículum para la oferta de empleo que deseas", anchor=False)
-st.write(
-    "Esta herramienta analiza los requisitos de la empresa y adapta estratégicamente tu perfil. "
-    "Las secciones resaltadas en amarillo representan las mejoras, palabras clave y optimizaciones "
-    "añadidas a tu CV para alinearlo con la oferta de empleo y convencer a los reclutadores."
+st.subheader(
+    "Optimiza tu currículum para la oferta de empleo que deseas",
+    anchor=False,
 )
-
+st.write(
+    "Esta herramienta analiza los requisitos de la empresa y adapta "
+    "estratégicamente tu perfil. Las mejoras se incorporan al contenido "
+    "del currículum para alinearlo con la oferta de empleo."
+)
 st.divider()
 
-# BARRA LATERAL: CONFIGURACIÓN, PRIVACIDAD Y TUTORIAL
+
+# ---------------------------------------------------------------------
+# Barra lateral: API, privacidad y tutorial
+# ---------------------------------------------------------------------
 with st.sidebar:
     st.header("🔑 Configuración y Llave de IA", anchor=False)
-    
+
     if usos_guardados < 1:
-        st.success("✨ Tienes 1 uso de prueba gratuito activado de forma solidaria.")
-        api_key_usuario = st.text_input("🔑 Introduce tu propia API Key de Groq (Opcional para el primer uso):", type="password")
-        api_key_a_usar = api_key_usuario if api_key_usuario.strip() else api_key_servidor
+        st.success("✨ Tienes 1 uso de prueba gratuito activado.")
+        api_key_usuario = st.text_input(
+            "🔑 API Key de Groq (opcional para el primer uso):",
+            type="password",
+        )
+        api_key_a_usar = api_key_usuario.strip() or api_key_servidor
     else:
-        st.warning("⏳ Has usado tu prueba solidaria en este equipo. Introduce tu propia API Key para seguir gratis:")
-        api_key_usuario = st.text_input("🔑 Introduce tu API Key de Groq:", type="password")
-        api_key_a_usar = api_key_usuario
-
-    with st.expander("💡 Guía rápida: Consigue tu API Key gratis en 30 segundos"):
-        st.markdown(
-            "Para evitar que la herramienta se sature y que puedas usarla **de forma ilimitada** sin coste, "
-            "puedes usar tu propia clave siguiendo estos pasos:\n\n"
-            "1. Entra en la web oficial gratuita: **[Groq Cloud Console](https://groq.com)**\n"
-            "2. Inicia sesión con tu cuenta de Google o correo.\n"
-            "3. En el menú izquierdo, haz clic en **API Keys**.\n"
-            "4. Pulsa el botón **Create API Key**, dale cualquier nombre y copia el código largo generado.\n"
-            "5. Pégalo en el cuadro de texto de aquí arriba."
+        st.warning(
+            "⏳ Ya has utilizado la prueba gratuita en este navegador. "
+            "Introduce tu propia API Key para continuar:"
         )
-        
-    with st.expander("🔒 Tu Privacidad es lo Primero"):
+        api_key_usuario = st.text_input(
+            "🔑 Introduce tu API Key de Groq:", type="password"
+        )
+        api_key_a_usar = api_key_usuario.strip()
+
+    with st.expander("💡 Guía rápida: consigue tu API Key"):
         st.markdown(
-            "- **Sin Registros:** Eres 100% anónimo.\n"
-            "- **Procesamiento Volátil:** No guardamos tus datos en el servidor. Al cerrar la pestaña del navegador, se borran automáticamente.\n"
-            "- **Cookies Técnicas:** Guardamos una cookie local en tu navegador exclusivamente para controlar el límite de cortesía del primer uso diario."
+            "1. Entra en [Groq Cloud Console](https://console.groq.com/).\n"
+            "2. Inicia sesión.\n"
+            "3. Abre **API Keys** y crea una clave.\n"
+            "4. Copia la clave y pégala en el campo anterior."
         )
 
-# PANTALLA PRINCIPAL: FORMULARIOS
+    with st.expander("🔒 Tu privacidad"):
+        st.markdown(
+            "- No necesitas identificarte para usar la herramienta.\n"
+            "- El CV se procesa para generar la adaptación solicitada.\n"
+            "- La cookie técnica se utiliza para contabilizar el uso gratuito "
+            "en este navegador."
+        )
+
+
+# ---------------------------------------------------------------------
+# Formulario y procesamiento
+# ---------------------------------------------------------------------
 col1, col2 = st.columns(2)
 
 with col1:
     st.header("1. Tus Datos", anchor=False)
-    archivo_subido = st.file_uploader("Sube tu CV actual en formato PDF", type=["pdf"])
+    archivo_subido = st.file_uploader(
+        "Sube tu CV actual en formato PDF", type=["pdf"]
+    )
     texto_oferta = st.text_area(
-        "Pega aquí la descripción de la oferta de empleo (requisitos, tareas, etc.):",
+        "Pega la descripción de la oferta de empleo:",
         height=350,
-        placeholder="Ej: Buscamos un desarrollador Python con experiencia en Django..."
+        placeholder="Ej.: Buscamos un desarrollador Python con experiencia...",
     )
 
 with col2:
     st.header("2. CV Adaptado", anchor=False)
-    boton_adaptar = st.button("✨ Adaptar Currículum Ahora", type="primary")
-    
+    boton_adaptar = st.button(
+        "✨ Adaptar Currículum Ahora", type="primary"
+    )
+
     if boton_adaptar:
         if not api_key_a_usar:
-            st.error("⚠️ Para continuar, por favor introduce tu propia API Key de Groq en la barra lateral.")
-        elif not archivo_subido:
+            st.error("⚠️ Introduce una API Key de Groq en la barra lateral.")
+        elif archivo_subido is None:
             st.error("⚠️ Por favor, sube tu currículum en PDF.")
         elif not texto_oferta.strip():
             st.error("⚠️ Por favor, pega la oferta de empleo.")
+        elif archivo_subido.size > MAX_PDF_BYTES:
+            st.error("⚠️ El PDF supera el límite permitido de 10 MB.")
+        elif not validar_firma_pdf(archivo_subido):
+            st.error("⚠️ El archivo no tiene una firma PDF válida.")
         else:
-            with st.spinner("Analizando la oferta y adaptando tu CV de manera estratégica..."):
-                texto_cv = extraer_texto_pdf(archivo_subido)
-                
-                if "Error al leer" in texto_cv:
-                    st.error(texto_cv)
-                else:
-                    try:
-                        cv_generado = tratar_cv_con_ia = adaptar_cv_con_ia(texto_cv, texto_oferta, api_key_a_usar)
-                        
-                        if cv_generado.strip():
-                            st.session_state['cv_html'] = cv_generado
-                            
+            try:
+                with st.spinner(
+                    "Analizando la oferta y adaptando tu CV..."
+                ):
+                    archivo_subido.seek(0)
+                    texto_cv = extraer_texto_pdf(archivo_subido)
+
+                    if not texto_cv or (
+                        isinstance(texto_cv, str)
+                        and texto_cv.startswith("Error al leer")
+                    ):
+                        st.error(
+                            texto_cv or "No se ha podido extraer texto del PDF."
+                        )
+                    else:
+                        cv_generado = adaptar_cv_con_ia(
+                            texto_cv, texto_oferta, api_key_a_usar
+                        )
+
+                        if cv_generado and cv_generado.strip():
+                            st.session_state.cv_html = cv_generado
+
+                            # Solo se contabiliza el uso cuando se consume
+                            # la clave del servidor, no cuando el usuario
+                            # introduce su propia clave.
                             if not api_key_usuario.strip():
                                 usos_guardados += 1
-                                cookies.set('cv_usos_gratuitos', usos_guardados)
-                                
+                                try:
+                                    cookies.set(COOKIE_USOS, str(usos_guardados))
+                                except Exception:
+                                    st.warning(
+                                        "No se pudo actualizar la cookie de uso "
+                                        "en este navegador."
+                                    )
+
                             st.success("🎉 ¡Tu CV ha sido adaptado!")
                         else:
-                            st.error("⚠️ La IA devolvió una respuesta vacía. Por favor, inténtalo de nuevo.")
-                            
-                    except Exception as e:
-                        if "429" in str(e):
                             st.error(
-                                "🛑 Se han agotado los tokens disponibles para esta clave en este momento. "
-                                "Introduce tu propia API Key en la barra lateral para saltarte este límite."
+                                "⚠️ La IA devolvió una respuesta vacía. "
+                                "Inténtalo de nuevo."
                             )
-                        else:
-                            st.error(f"Hubo un problema con la IA: {str(e)}")
 
-    # RENDERIZADO Y DESCARGA
-    if 'cv_html' in st.session_state and st.session_state['cv_html']:
-        st.write("### Vista Previa de Cambios:")
-st.html(st.session_state['cv_html'])
-st.divider()
-cv_texto_plano = limpiar_html_para_txt(st.session_state['cv_html'])
-st.download_button(
-label="💾 Descargar CV en Texto Plano Limpio (.txt)",
-data=cv_texto_plano,
-file_name="CV_Optimizado_ATS.txt",
-mime="text/plain",
-use_container_width=True
-);
+            except Exception as exc:
+                if "429" in str(exc):
+                    st.error(
+                        "🛑 Se ha alcanzado temporalmente el límite de la API. "
+                        "Prueba más tarde o utiliza tu propia API Key."
+                    )
+                else:
+                    st.error(
+                        "Hubo un problema al adaptar el CV. "
+                        "Revisa la configuración e inténtalo de nuevo."
+                    )
+                    # El detalle técnico queda en los logs del servidor,
+                    # no se expone al usuario.
+                    print(f"Error en adaptar_cv_con_ia: {exc}")
+
+
+# ---------------------------------------------------------------------
+# Vista previa y descarga del PDF nativo
+# ---------------------------------------------------------------------
+if st.session_state.cv_html:
+    st.write("### Vista previa del CV adaptado")
+    texto_cv_limpio = limpiar_html_para_pdf(st.session_state.cv_html)
+
+    if texto_cv_limpio:
+        st.text_area(
+            "Contenido generado",
+            value=texto_cv_limpio,
+            height=450,
+            disabled=True,
+        )
+
+        try:
+            pdf_buffer = generar_pdf_ats(texto_cv_limpio)
+            st.download_button(
+                label="💾 Descargar CV optimizado en PDF",
+                data=pdf_buffer.getvalue(),
+                file_name="CV_Optimizado_ATS.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except Exception:
+            st.error(
+                "No se pudo generar el PDF. El contenido adaptado sigue "
+                "disponible en la vista previa."
+            )
+    else:
+        st.warning("La respuesta generada no contiene texto que se pueda exportar.")
