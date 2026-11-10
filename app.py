@@ -13,11 +13,6 @@ from streamlit_cookies_controller import CookieController
 from lector_pdf import extraer_texto_pdf
 from ia_motor import adaptar_cv_con_ia
 
-from reportlab.lib.enums import TA_LEFT
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
-
 
 # ---------------------------------------------------------------------
 # Configuración
@@ -113,45 +108,6 @@ def limpiar_todo_para_ats(texto_html):
             texto = partes[0]
             
     return texto.strip()
-
-
-def generar_pdf_ats_puro(texto_cv):
-    """Genera un PDF A4 nativo en una sola columna con texto plano seleccionable."""
-    buffer = BytesIO()
-    # Forzamos formato A4 con márgenes estándar de una pulgada (54 puntos)
-    doc = SimpleDocTemplate(
-        buffer, 
-        pagesize=A4, 
-        rightMargin=54, 
-        leftMargin=54, 
-        topMargin=54, 
-        bottomMargin=54
-    )
-    styles = getSampleStyleSheet()
-    
-    # Estilo ATS limpio: tipografía estándar, interlineado fluido y alineación izquierda
-    estilo_texto = ParagraphStyle(
-        'ATS_Texto', 
-        parent=styles['Normal'], 
-        fontName='Helvetica', 
-        fontSize=10, 
-        leading=15, 
-        alignment=TA_LEFT, 
-        spaceAfter=6
-    )
-    
-    story = []
-    for linea in texto_cv.split('\n'):
-        linea_limpia = linea.strip()
-        if not linea_limpia:
-            story.append(Spacer(1, 8))
-            continue
-        story.append(Paragraph(linea_limpia, estilo_texto))
-        
-    doc.build(story)
-    buffer.seek(0)
-    return buffer
-
 
 def obtener_api_key_servidor():
     """Lee la clave desde Streamlit Secrets o variables de entorno."""
@@ -409,37 +365,26 @@ with col2:
                     )
 
 # ---------------------------------------------------------------------
-# Vista previa y descarga del PDF nativo
+# Vista previa y descarga CV nativo
 # ---------------------------------------------------------------------
 if st.session_state.cv_html:
-    st.write("### Vista previa del CV adaptado")
+    st.write("### 📋 Tu CV Optimizado para ATS Listo")
+    st.info("💡 Usa el botón que aparece arriba a la derecha del recuadro para copiar todo el texto con un solo clic.")
     
-    # MODIFICACIÓN: Llamamos a la nueva función de limpieza profunda (quita HTML, Markdown y comentarios)
+    # 1. Aplicamos la limpieza profunda (fuera HTML, Markdown y comentarios de la IA)
     texto_cv_limpio = limpiar_todo_para_ats(st.session_state.cv_html)
 
     if texto_cv_limpio:
-        st.text_area(
-            "Contenido generado",
-            value=texto_cv_limpio,
-            height=450,
-            disabled=True,
+        # 2. ENCAPSULADO EN RECUADRO CON BOTÓN DE COPIAR AUTOMÁTICO
+        # Al usar st.code con language=None, Streamlit crea el recuadro gris profesional 
+        # y añade el botón nativo de copiar en la esquina superior derecha.
+        st.code(
+            texto_cv_limpio,
+            language=None, # Mantiene el texto plano sin coloreado de código de programación
+            wrap_lines=True # Evita el scroll horizontal forzando saltos de línea limpios
         )
-
-        try:
-            # MODIFICACIÓN: Llamamos al nuevo generador de PDF A4 en una sola columna
-            pdf_buffer = generar_pdf_ats_puro(texto_cv_limpio)
-            
-            st.download_button(
-                label="💾 Descargar CV optimizado en PDF",
-                data=pdf_buffer, # Pasamos el flujo binario optimizado directamente
-                file_name="CV_Optimizado_ATS.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        except Exception:
-            st.error(
-                "No se pudo generar el PDF. El contenido adaptado sigue "
-                "disponible en la vista previa."
-            )
+        
+        st.success("🎉 ¡Proceso completado! Copia el texto y pégalo en tu editor favorito (Word, Docs) para guardarlo como PDF.")
     else:
-        st.warning("La respuesta generada no contiene texto que se pueda exportar.")
+        st.warning("La respuesta generada no contiene texto que se pueda mostrar.")
+
