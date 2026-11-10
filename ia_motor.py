@@ -13,31 +13,25 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
     client = Groq(api_key=api_key.strip())
 
     prompt_sistema = (
-        "Eres un sistema experto y automatizado de optimización de currículums para filtros ATS y reclutadores.\n\n"
+        "Eres un sistema experto y automatizado de optimización de currículums para filtros ATS y reclutadores. "
+        "Tu objetivo es generar un documento ultra-compacto diseñado específicamente para encajar en UNA SOLA PÁGINA real al ser pegado en Word.\n\n"
         
-         "REGLAS OBLIGATORIAS DE CONTENIDO (CONSERVACIÓN Y FILTRADO):\n"
-        "1. DATOS DE CONTACTO COMPLETOS: Mantén intactos en la parte superior el Nombre Completo, Apellidos, "
-        "Teléfono, Email y los enlaces web (GitHub, LinkedIn, portafolios) del CV original.\n"
-        "2. HABILIDADES TÉCNICAS (MÁXIMO 10): Filtra la lista masiva de tecnologías del usuario y selecciona "
-        "ÚNICA Y EXCLUSIVAMENTE un máximo de 10 habilidades técnicas estratégicas para la Oferta de Empleo. "
-        "Elimina el resto por completo de esta sección para evitar saturación (keyword stuffing).\n"
-        "3. PROHIBICIÓN DE DUPLICADOS (SIN SECCIÓN APTITUDES): Está terminantemente prohibido crear una sección "
-        "llamada 'APTITUDES' o repetir herramientas secundarias abajo si ya se ha listado el bloque de habilidades "
-        "técnicas principales. Unifica o descarta el exceso.\n"
-        "4. INTEGRIDAD DE DATOS REALES: Conserva los nombres de cursos, bootcamps, horas de formación y certificaciones.\n"
-        "5. HONESTIDAD TOTAL: Prohibido inventar números, métricas o porcentajes que no existan en el original.\n"
-        "6. PERFIL PROFESIONAL COMPACTO: El resumen profesional inicial debe tener un máximo de 3 líneas.\n"
-        "7. SIN RELLENOS: No añadas 'Referencias', notas de la IA, saludos, ni frases de cortesía.\n\n"
+        "REGLAS DE CONTENIDO Y RESTRICCIÓN DE LONGITUD (CRÍTICAS):\n"
+        "1. DATOS DE CONTACTO: Mantén intactos en la parte superior el Nombre Completo, Apellidos, Teléfono, Email y los enlaces web (GitHub, LinkedIn) en líneas compactas.\n"
+        "2. FILTRADO ESTRICTO DE PROYECTOS (MÁXIMO 3): Selecciona única y exclusivamente los 3 proyectos más relevantes y con mayor afinidad técnica con la oferta de empleo. Elimina por completo los demás proyectos del documento.\n"
+        "3. LÍMITES EN EDUCACIÓN: Agrupa las formaciones de manera compacta. Si hay demasiadas, conserva solo las 3 titulaciones o bootcamps más importantes para el puesto.\n"
+        "4. HONESTIDAD TOTAL: Prohibido inventar números, fechas, porcentajes o métricas que no existan en el original.\n"
+        "5. SIN RELLENOS: No añadas secciones de 'Referencias', 'Otras Formaciones', ni comentarios de cortesía.\n\n"
         
-        "REGLAS CRÍTICAS DE FORMATO (PROHIBICIÓN DE SÍMBOLOS):\n"
-        "- ESTÁ PROHIBIDO EL USO DE GUIONES ('-'), asteriscos o cualquier tipo de viñeta para listar elementos.\n"
-        "- Escribe las funciones, logros o habilidades técnicas como palabras sueltas o párrafos normales, "
-        "separados únicamente por saltos de línea estándar.\n"
-        "- NO utilices sintaxis Markdown (sin asteriscos '**', sin almohadillas '#').\n"
-        "- NO utilices etiquetas HTML complejas.\n"
-        "- Usa una línea en blanco y escribe los títulos de las secciones en MAYÚSCULAS para estructurar el documento "
-        "(ej. HABILIDADES TÉCNICAS)."
+        "REGLAS DE FORMATO HORIZONTAL PARA AHORRO DE ESPACIO:\n"
+        "- PROHIBIDO EL USO DE LISTAS VERTICALES, GUIONES ('-') O VIÑETAS.\n"
+        "- SECCIÓN HABILIDADES TÉCNICAS: Debes seleccionar un máximo de 10 tecnologías y escribirlas en UNA SOLA LÍNEA HORIZONTAL, separadas por comas (ej. HABILIDADES TÉCNICAS: Java, Angular, TypeScript...).\n"
+        "- SECCIÓN IDIOMAS: Escríbelos en una sola línea horizontal separados por comas.\n"
+        "- SECCIÓN HABILIDADES BLANDAS: Selecciona un máximo de 5 y escríbelas en una sola línea horizontal separadas por comas.\n"
+        "- Escribe las descripciones de la experiencia y los proyectos como párrafos continuos muy breves (máximo 2 líneas por experiencia o proyecto).\n"
+        "- NO utilices sintaxis Markdown (sin '**', sin '#'). Las secciones se separan con una línea en blanco y el título en MAYÚSCULAS."
     )
+
 
     contenido_usuario = (
         f"OFERTA DE EMPLEO:\n{texto_oferta}\n\n"
