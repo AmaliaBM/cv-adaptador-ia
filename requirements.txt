@@ -2,3 +2,4 @@ streamlit
 groq
 pdfplumber
 streamlit-cookies-controller
+reportlab
