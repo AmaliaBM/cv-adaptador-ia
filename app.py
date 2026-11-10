@@ -385,24 +385,25 @@ def generar_pdf_desde_html(codigo_html):
     <style>
         @page {
             size: a4;
-            margin: 1.5cm;
+            margin: 1.0cm; /* Reducimos márgenes para maximizar el espacio útil */
         }
         body {
             font-family: Helvetica, Arial, sans-serif;
-            font-size: 10pt;
-            line-height: 1.4;
+            font-size: 9.5pt; /* Reducimos ligeramente la fuente para asegurar 1 página */
+            line-height: 1.3;
             color: #333333;
         }
         h3 {
-            font-size: 12pt;
-            margin-top: 15px;
-            margin-bottom: 5px;
+            font-size: 11pt;
+            margin-top: 10px;
+            margin-bottom: 4px;
             color: #000000;
             border-bottom: 0.5px solid #cccccc;
             text-transform: uppercase;
         }
         p {
-            margin-bottom: 4px;
+            margin-top: 0px;    /* ELIMINA EL ESPACIO GIGANTE SUPERIOR */
+            margin-bottom: 3px;  /* COMPACTA EL ESPACIO INFERIOR ENTRE LÍNEAS */
             text-align: justify;
         }
     </style>

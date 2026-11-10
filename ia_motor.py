@@ -12,18 +12,23 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
     client = Groq(api_key=api_key.strip())
 
     prompt_sistema = (
-        "Eres un sistema experto en optimización de currículums para filtros ATS y reclutadores.\n\n"
-        "Tu objetivo es reescribir el CV del usuario adaptándolo a la oferta, devolviendo el resultado "
-        "únicamente en texto estructurado con etiquetas HTML básicas de bloque (<h3>, <p>). "
-        "Está terminantemente prohibido usar Markdown (sin '**', sin '#').\n\n"
-        "REGLAS DE CONTENIDO STRICTORAS:\n"
-        "1. DATOS DE CONTACTO: Mantén Nombre, Apellidos, Teléfono, Email, GitHub y LinkedIn en la parte superior.\n"
-        "2. FILTRADO DE PROYECTOS: Incluye un máximo de 3 proyectos, los más relevantes para la oferta.\n"
-        "3. HONESTIDAD TOTAL: Prohibido inventar porcentajes, números o métricas que no existan en el original.\n"
-        "4. SIN RELLENOS: No añadas la sección 'Referencias', notas de la IA ni saludos.\n"
-        "5. SIN VIÑETAS: No uses guiones ni asteriscos para listas. Escribe los logros como frases continuas dentro de etiquetas <p>.\n\n"
-        "Estructura el documento usando <h3> para los títulos de sección (ej: <h3>EXPERIENCIA PROFESIONAL</h3>) "
-        "y <p> para los textos y datos de contacto."
+        "Eres un sistema experto y ultra-estricto de optimización estructural de currículums para filtros ATS de alto rendimiento. "
+        "Tu único objetivo es generar un documento compacto diseñado específicamente para ocupar UNA SOLA PÁGINA real.\n\n"
+        
+        "REGLAS DE SELECCIÓN Y RECORTE DE CONTENIDO (MÁXIMA COMPRESIÓN):\n"
+        "1. CABECERA COMPACTA: Escribe los datos de contacto en un único bloque de texto sin separar por párrafos independientes. "
+        "Usa el formato horizontal exacto: [Nombre] | [Teléfono] | [Email] | GitHub: [Enlace] | LinkedIn: [Enlace] | [Ubicación].\n"
+        "2. FILTRADO DE PROYECTOS (MÁXIMO 2): Selecciona únicamente los 2 proyectos más importantes y afines a la oferta. Elimina el resto.\n"
+        "3. LÍMITE DE EDUCACIÓN: Muestra un máximo de 3 títulos o bootcamps. Cada uno debe ocupar una sola línea limpia.\n"
+        "4. HONESTIDAD TOTAL: Prohibido inventar números, fechas, porcentajes o métricas que no existan en el original.\n"
+        "5. PROHIBICIÓN DE SECCIONES FINALES: No incluyas NUNCA secciones de 'Referencias', 'Alineación con la empresa', notas de la IA, saludos, ni resúmenes explicativos al final. El documento debe terminar en la sección de habilidades.\n\n"
+        
+        "REGLAS DE FORMATO (PROHIBICIÓN DE SÍMBOLOS):\n"
+        "- ESTÁ TOTALMENTE PROHIBIDO EL USO DE GUIONES ('-'), asteriscos o cualquier tipo de viñeta.\n"
+        "- Escribe las funciones y logros como un único párrafo continuo de máximo 2 líneas por experiencia.\n"
+        "- NO utilices sintaxis Markdown (sin '**', sin '#', sin '###').\n"
+        "- Estructura el documento usando únicamente <h3> para los títulos de sección (ej: <h3>EXPERIENCIA PROFESIONAL</h3>) "
+        "y <p> para los bloques de texto normal."
     )
 
     contenido_usuario = f"OFERTA DE EMPLEO:\n{texto_oferta}\n\nCURRÍCULUM ACTUAL:\n{texto_cv}"
