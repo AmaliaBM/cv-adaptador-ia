@@ -1,43 +1,37 @@
-
+import os
 from groq import Groq
-
 
 def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
     """
     Adapta un CV a una oferta de empleo mediante Groq.
-    Devuelve el contenido generado por la IA.
+    Garantiza la preservación de datos de contacto y prohíbe el uso de guiones o viñetas.
     """
-
     if not api_key or not api_key.strip():
         raise ValueError("No se ha proporcionado una API Key de Groq.")
-
-    if not texto_cv or not texto_cv.strip():
-        raise ValueError("El currículum está vacío.")
-
-    if not texto_oferta or not texto_oferta.strip():
-        raise ValueError("La oferta de empleo está vacía.")
 
     client = Groq(api_key=api_key.strip())
 
     prompt_sistema = (
-        "Eres un motor automatizado y estricto de optimización de currículums para sistemas ATS.\n\n"
+        "Eres un sistema experto y automatizado de optimización de currículums para filtros ATS y reclutadores.\n\n"
         
-        "REGLAS DE CONTENIDO CRÍTICAS:\n"
-        "1. HONESTIDAD ABSOLUTA (PROHIBIDO INVENTAR MÉTRICAS): No inventes NINGÚN porcentaje, número, "
-        "métrica de éxito, fecha o nombre de empresa que no esté explícitamente en el CV original. Si el usuario "
-        "no proporciona un número (ej. '%'), tú NO debes crearlo. Optimiza usando sus datos reales.\n"
-        "2. SIN TEXTO COMPLEMENTARIO NI RELLENO: No añadas secciones genéricas como 'Referencias', 'Disponibilidad' "
-        "ni frases de cortesía al inicio o al final. No saludes ni des explicaciones de lo que has hecho.\n"
-        "3. PERFIL PROFESIONAL ULTRA-COMPACTO: El resumen profesional inicial debe tener una extensión máxima de 3 líneas.\n"
-        "4. PALABRAS CLAVE: Adapta los nombres de las tecnologías y metodologías para que coincidan exactamente con "
-        "los términos técnicos utilizados en la Oferta de Empleo proporcionada.\n\n"
+        "REGLAS OBLIGATORIAS DE CONTENIDO (CONSERVACIÓN DE INFORMACIÓN):\n"
+        "1. DATOS DE CONTACTO COMPLETOS: Debes mantener intactos y en la parte superior del documento el Nombre Completo, "
+        "Apellidos, Teléfono, Email y los enlaces web (GitHub, LinkedIn, portafolios) que aparezcan en el CV original.\n"
+        "2. INTEGRIDAD DE DATOS REALES: Conserva todas las tecnologías, nombres de cursos, bootcamps, horas de formación, "
+        "certificaciones, herramientas y habilidades del CV original. No omitas información técnica valiosa.\n"
+        "3. HONESTIDAD TOTAL: Está terminantemente prohibido inventar números, métricas, porcentajes (ej. % de éxito o reducción) "
+        "o experiencias que no existan en el texto del currículum original.\n"
+        "4. PERFIL PROFESIONAL: Adapta el resumen profesional inicial para alinearlo con las palabras clave de la oferta de empleo, "
+        "con una extensión máxima de 3 líneas.\n"
+        "5. SIN RELLENOS: No añadas secciones de 'Referencias', notas de la IA, saludos, ni frases de cortesía.\n\n"
         
-        "REGLAS DE FORMATO ESTRICTAS:\n"
-        "- NO uses sintaxis Markdown (sin asteriscos '**', sin almohadillas '#').\n"
-        "- NO uses etiquetas HTMLcomplejas.\n"
-        "- Para separar secciones, usa una línea en blanco y escribe el título de la sección en MAYÚSCULAS "
-        "(ej. EXPERIENCIA PROFESIONAL).\n"
-        "- Para los logros, utiliza única y exclusivamente un guion normal '-' al inicio de la línea."
+        "REGLAS CRÍTICAS DE FORMATO (PROHIBICIÓN DE SÍMBOLOS):\n"
+        "- ESTÁ PROHIBIDO EL USO DE GUIONES ('-'), asteriscos o cualquier tipo de viñeta o carácter decorativo para listar elementos.\n"
+        "- En su lugar, escribe las funciones, responsabilidades o logros como párrafos normales y directos, separados únicamente por un salto de línea.\n"
+        "- NO utilices sintaxis Markdown (sin asteriscos '**', sin almohadillas '#').\n"
+        "- NO utilices etiquetas HTML complejas.\n"
+        "- Usa una línea en blanco y escribe los títulos de las secciones en MAYÚSCULAS para estructurar el documento "
+        "(ej. EXPERIENCIA PROFESIONAL)."
     )
 
     contenido_usuario = (
@@ -55,7 +49,6 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
         max_tokens=3000
     )
 
-    # IMPORTANTE: choices es una lista.
     if not completation.choices:
         raise RuntimeError("Groq no ha devuelto ninguna respuesta.")
 
