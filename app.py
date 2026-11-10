@@ -376,41 +376,83 @@ with col2:
 # ---------------------------------------------------------------------
 # Vista previa y descarga CV nativo
 # ---------------------------------------------------------------------
-def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
+def generar_pdf_desde_html(codigo_html):
     """
-    Se conecta a Groq para adaptar el CV devolviendo una estructura HTML limpia
-    lista para ser convertida en un PDF ATS-Friendly rígido.
+    Convierte un string HTML/CSS en un archivo PDF binario indexable (ATS-Friendly)
+    con dimensiones de página A4 estrictas y márgenes profesionales congelados.
     """
-    if not api_key or not api_key.strip():
-        raise ValueError("No se ha proporcionado una API Key de Groq.")
+    estilos_pdf = """
+    <style>
+        @page {
+            size: a4;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: Helvetica, Arial, sans-serif;
+            font-size: 10pt;
+            line-height: 1.4;
+            color: #333333;
+        }
+        h3 {
+            font-size: 12pt;
+            margin-top: 15px;
+            margin-bottom: 5px;
+            color: #000000;
+            border-bottom: 0.5px solid #cccccc;
+            text-transform: uppercase;
+        }
+        p {
+            margin-bottom: 4px;
+            text-align: justify;
+        }
+    </style>
+    """
+    html_completo = f"<html><head>{estilos_pdf}</head><body>{codigo_html}</body></html>"
+    
+    buffer = BytesIO()
+    pisa_status = pisa.CreatePDF(html_completo, dest=buffer)
+    buffer.seek(0)
+    return buffer if not pisa_status.err else None
 
-    client = Groq(api_key=api_key.strip())
-
-    prompt_sistema = (
-        "Eres un sistema experto en optimización de currículums para filtros ATS y reclutadores.\n\n"
-        "Tu objetivo es reescribir el CV del usuario adaptándolo a la oferta, devolviendo el resultado "
-        "únicamente en texto estructurado con etiquetas HTML básicas de bloque (<h3>, <p>). "
-        "Está terminantemente prohibido usar Markdown (sin '**', sin '#').\n\n"
-        "REGLAS DE CONTENIDO STRICTORAS:\n"
-        "1. DATOS DE CONTACTO: Mantén Nombre, Apellidos, Teléfono, Email, GitHub y LinkedIn en la parte superior.\n"
-        "2. FILTRADO DE PROYECTOS: Incluye un máximo de 3 proyectos, los más relevantes para la oferta.\n"
-        "3. HONESTIDAD TOTAL: Prohibido inventar porcentajes, números o métricas que no existan en el original.\n"
-        "4. SIN RELLENOS: No añadas la sección 'Referencias', notas de la IA ni saludos.\n"
-        "5. SIN VIÑETAS: No uses guiones ni asteriscos para listas. Escribe los logros como frases continuas dentro de etiquetas <p>.\n\n"
-        "Estructura el documento usando <h3> para los títulos de sección (ej: <h3>EXPERIENCIA PROFESIONAL</h3>) "
-        "y <p> para los textos y datos de contacto."
-    )
-
-    contenido_usuario = f"OFERTA DE EMPLEO:\n{texto_oferta}\n\nCURRÍCULUM ACTUAL:\n{texto_cv}"
-
-    completation = client.chat.completions.create(
-        model="openai/gpt-oss-120b",
-        messages=[
-            {"role": "system", "content": prompt_sistema},
-            {"role": "user", "content": contenido_usuario}
-        ],
-        temperature=0.3,
-        max_tokens=3000
-    )
-
-    return completation.choices[0].message.content.strip()
+# Renderizado final en la interfaz
+if 'cv_html' in st.session_state and st.session_state['cv_html']:
+    st.write("### 💼 Vista previa de tu CV Optimizado")
+    
+    # 1. Mostramos la hoja blanca estética simulando el folio A4 real en el navegador
+    plantilla_estetica_ats = f"""
+    <div style="
+        background-color: #ffffff; 
+        color: #333333; 
+        font-family: 'Helvetica', 'Arial', sans-serif; 
+        font-size: 10.5pt; 
+        line-height: 1.5; 
+        padding: 40px; 
+        border: 1px solid #d0d0d0; 
+        border-radius: 6px;
+        max-width: 800px;
+        margin: 0 auto;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    ">
+        {st.session_state['cv_html']}
+    </div>
+    """
+    st.html(plantilla_estetica_ats)
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # 2. Compilación directa a PDF en el servidor con xhtml2pdf
+    if pisa:
+        with st.spinner("Compilando tu PDF oficial para ATS..."):
+            pdf_final = generar_pdf_desde_html(st.session_state['cv_html'])
+            
+            if pdf_final:
+                st.download_button(
+                    label="💾 Descargar CV en Formato PDF Oficial para ATS",
+                    data=pdf_final,
+                    file_name="CV_Optimizado_ATS.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            else:
+                st.error("⚠️ Hubo un problema al procesar el formato del PDF en el servidor.")
+    else:
+        st.error("⚠️ La librería xhtml2pdf no se cargó correctamente. Revisa la instalación.")
