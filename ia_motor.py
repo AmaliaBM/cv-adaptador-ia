@@ -12,23 +12,23 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
     client = Groq(api_key=api_key.strip())
 
     prompt_sistema = (
-        "Eres un sistema experto y ultra-estricto de optimización estructural de currículums para filtros ATS de alto rendimiento. "
-        "Tu único objetivo es generar un documento compacto diseñado específicamente para ocupar UNA SOLA PÁGINA real.\n\n"
+        "Eres un sistema experto y ultra-preciso de optimización y formateo de currículums para filtros ATS de alto rendimiento.\n\n"
         
-        "REGLAS DE SELECCIÓN Y RECORTE DE CONTENIDO (MÁXIMA COMPRESIÓN):\n"
-        "1. CABECERA COMPACTA: Escribe los datos de contacto en un único bloque de texto sin separar por párrafos independientes. "
-        "Usa el formato horizontal exacto: [Nombre] | [Teléfono] | [Email] | GitHub: [Enlace] | LinkedIn: [Enlace] | [Ubicación].\n"
-        "2. FILTRADO DE PROYECTOS (MÁXIMO 2): Selecciona únicamente los 2 proyectos más importantes y afines a la oferta. Elimina el resto.\n"
-        "3. LÍMITE DE EDUCACIÓN: Muestra un máximo de 3 títulos o bootcamps. Cada uno debe ocupar una sola línea limpia.\n"
-        "4. HONESTIDAD TOTAL: Prohibido inventar números, fechas, porcentajes o métricas que no existan en el original.\n"
-        "5. PROHIBICIÓN DE SECCIONES FINALES: No incluyas NUNCA secciones de 'Referencias', 'Alineación con la empresa', notas de la IA, saludos, ni resúmenes explicativos al final. El documento debe terminar en la sección de habilidades.\n\n"
+        "REGLAS DE CONTENIDO Y CONSERVACIÓN:\n"
+        "1. DATOS DE CONTACTO COMPLETOS: Mantén en la parte superior el Nombre Completo, Apellidos, Teléfono, Email, GitHub y LinkedIn del original.\n"
+        "2. FILTRADO DE PROYECTOS (MÁXIMO 3): Conserva únicamente los 3 proyectos más relevantes para la oferta de empleo. Reduce sus descripciones a un máximo de 2 líneas por proyecto.\n"
+        "3. HONESTIDAD TOTAL: Está terminantemente prohibido inventar métricas, números o porcentajes que no existan en el original.\n"
+        "4. SIN RELLENOS: No incluyas secciones de 'Referencias', notas de la IA, saludos, ni explicaciones de lo que has hecho.\n\n"
         
-        "REGLAS DE FORMATO (PROHIBICIÓN DE SÍMBOLOS):\n"
-        "- ESTÁ TOTALMENTE PROHIBIDO EL USO DE GUIONES ('-'), asteriscos o cualquier tipo de viñeta.\n"
-        "- Escribe las funciones y logros como un único párrafo continuo de máximo 2 líneas por experiencia.\n"
-        "- NO utilices sintaxis Markdown (sin '**', sin '#', sin '###').\n"
-        "- Estructura el documento usando únicamente <h3> para los títulos de sección (ej: <h3>EXPERIENCIA PROFESIONAL</h3>) "
-        "y <p> para los bloques de texto normal."
+        "REGLAS DE MAQUETACIÓN HTML PRE-CONSTRUIDA (CRÍTICO):\n"
+        "- NO utilices sintaxis Markdown (sin asteriscos '**', sin almohadillas '#').\n"
+        "- Cada sección principal debe abrir con una etiqueta <h3> en MAYÚSCULAS puros (ej: <h3>EXPERIENCIA PROFESIONAL</h3>).\n"
+        "- Para los puestos de trabajo y proyectos, pon el título en una línea y debajo escribe los metadatos separados por barras (ej: <p>Infonet.fr | Barcelona | September 2026 – Present</p>).\n"
+        "- PROHIBIDO EL USO DE GUIONES O LISTAS VERTICALES CASERAS.\n"
+        "- ESTRUCTURA DE DOS COLUMNAS PARA DATOS CORTOS: Para las secciones de HABILIDADES TÉCNICAS, IDIOMAS y SOFT SKILLS, "
+        "debes organizar los elementos dentro de una estructura de tabla HTML limpia de dos columnas usando las etiquetas <table>, <tr> y <td>. "
+        "Coloca las etiquetas de los bloques técnicos a la izquierda y el listado de herramientas a la derecha (ej: <tr><td><b>Languages:</b></td><td>Java, TypeScript, JavaScript</td></tr>), "
+        "permitiendo que el diseño aproveche el ancho completo de la hoja."
     )
 
     contenido_usuario = f"OFERTA DE EMPLEO:\n{texto_oferta}\n\nCURRÍCULUM ACTUAL:\n{texto_cv}"

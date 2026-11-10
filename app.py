@@ -385,26 +385,49 @@ def generar_pdf_desde_html(codigo_html):
     <style>
         @page {
             size: a4;
-            margin: 1.0cm; /* Reducimos márgenes para maximizar el espacio útil */
+            margin: 1.2cm; /* Margen profesional estrecho para asegurar 1 página */
         }
         body {
             font-family: Helvetica, Arial, sans-serif;
-            font-size: 9.5pt; /* Reducimos ligeramente la fuente para asegurar 1 página */
-            line-height: 1.3;
-            color: #333333;
+            font-size: 10pt; /* TAMAÑO DE LETRA 10 EXIGIDO POR REQUISITO */
+            line-height: 1.35;
+            color: #2b2b2b;
         }
         h3 {
-            font-size: 11pt;
-            margin-top: 10px;
+            font-size: 11.5pt;
+            font-weight: bold;
+            margin-top: 14px;
             margin-bottom: 4px;
-            color: #000000;
-            border-bottom: 0.5px solid #cccccc;
+            color: #4A1525; /* Color Guinda/Vino premium del PDF de referencia */
+            border-bottom: 0.8px solid #4A1525; /* Línea divisoria elegante */
             text-transform: uppercase;
         }
         p {
-            margin-top: 0px;    /* ELIMINA EL ESPACIO GIGANTE SUPERIOR */
-            margin-bottom: 3px;  /* COMPACTA EL ESPACIO INFERIOR ENTRE LÍNEAS */
+            margin-top: 0px;
+            margin-bottom: 4px;
             text-align: justify;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 2px;
+            margin-bottom: 4px;
+        }
+        td {
+            padding: 2px 0px;
+            vertical-align: top;
+            font-size: 10pt;
+        }
+        /* Columna de categorías (Izquierda): Ancho fijo y compacta */
+        td.categoria {
+            width: 30%;
+            font-weight: bold;
+            color: #333333;
+        }
+        /* Columna de elementos (Derecha): Aprovecha el resto del folio */
+        td.elementos {
+            width: 70%;
+            color: #555555;
         }
     </style>
     """
