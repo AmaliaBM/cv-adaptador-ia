@@ -12,39 +12,26 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
 
     client = Groq(api_key=api_key.strip())
 
-    prompt_sistema = (
-        "Eres un sistema experto y automatizado de optimización estructural de currículums para filtros ATS de alto rendimiento.\n\n"
+    prompt_sistema =     prompt_sistema = (
+        "Eres un sistema experto de optimización estructural de currículums para filtros ATS. "
+        "Tu objetivo es generar un documento ultra-compacto diseñado estrictamente para ocupar UNA SOLA PÁGINA en Word.\n\n"
         
-        "REGLAS DE DISEÑO Y MAQUETACIÓN OBLIGATORIAS:\n"
-        "1. CABECERA DE CONTACTO HORIZONTAL: Sigue este formato exacto en las primeras líneas:\n"
-        "   [NOMBRE Y APELLIDOS DEL USUARIO]\n"
-        "   [TAGLINE O ROL PROFESIONAL ADAPTADO A LA OFERTA]\n"
-        "   [Ciudad, País] | [Teléfono] | [Email]\n"
-        "   GitHub: [Enlace] | LinkedIn: [Enlace]\n\n"
+        "REGLAS DE RECORTE DE CONTENIDO (MÁXIMA COMPRESIÓN):\n"
+        "1. DATOS DE CONTACTO: Escribe los datos en un formato horizontal ultra-compacto:\n"
+        "   [NOMBRE Y APELLIDOS]\n"
+        "   [ROL PROFESIONAL ADAPTADO A LA OFERTA]\n"
+        "   [Ciudad, País] | [Teléfono] | [Email] | GitHub: [Enlace] | LinkedIn: [Enlace]\n"
+        "2. FILTRADO EXTENSIVO DE PROYECTOS (MÁXIMO 2): Selecciona única y exclusivamente los 2 proyectos más importantes y afines a la oferta. Elimina por completo todos los demás proyectos del currículum.\n"
+        "3. LÍMITE DE EDUCACIÓN: Muestra un máximo de 3 títulos o bootcamps. Consensa cada titulación en una sola línea (ej. Titulación | Escuela | Fechas).\n"
+        "4. SIN RELLENOS: No añadas resúmenes de perfil largos (máximo 2 líneas), secciones de 'Referencias', notas de la IA, saludos, ni 'Otras Formaciones'.\n"
+        "5. HONESTIDAD TOTAL: Prohibido inventar números, fechas, porcentajes o métricas que no existan en el original.\n\n"
         
-        "2. FORMATO DE SECCIONES (MAYÚSCULAS PURAS):\n"
-        "   Usa títulos en MAYÚSCULAS sin símbolos ni asteriscos para marcar el inicio de cada sección:\n"
-        "   PROFESSIONAL EXPERIENCE, TECHNICAL PROJECTS, EDUCATION & PROFESSIONAL TRAINING, TECHNICAL SKILLS, LANGUAGES, SOFT SKILLS.\n\n"
-        
-        "3. FORMATO DE SUBTÍTULOS (EMPRESA Y ROLES):\n"
-        "   Para los puestos de trabajo y proyectos, usa una estructura de dos líneas sin viñetas ni guiones:\n"
-        "   Línea A: NOMBRE DEL PUESTO O PROYECTO en MAYÚSCULAS\n"
-        "   Línea B: Compañía | Ciudad o Entorno | Fechas (ej. Infonet.fr | Barcelona | September 2026 – Present)\n\n"
-        
-        "4. FORMATO DE HABILIDADES TÉCNICAS (TECHNICAL SKILLS):\n"
-        "   Agrupa las tecnologías por subcategorías semánticas en líneas horizontales seguidas por dos puntos y separadas por comas. Ejemplo exacto:\n"
-        "   Programming & Frameworks: Java, JavaScript, Spring Boot\n"
-        "   Databases: MongoDB\n"
-        "   DevOps & Infrastructure: Docker, Kubernetes\n\n"
-        
-        "5. IDIOMAS Y SOFT SKILLS:\n"
-        "   Escríbelos en una única línea por sección utilizando barras verticales como separadores (ej. English: C1 | Spanish: Native).\n\n"
-        
-        "REGLAS DE CONTROL DE CONTENIDO:\n"
-        "- PROHIBIDO EL USO DE GUIONES ('-'), asteriscos ('*') o viñetas.\n"
-        "- Escribe las descripciones de las tareas y logros como párrafos continuos directos inmediatamente debajo de la línea de metadata del puesto.\n"
-        "- HONESTIDAD TOTAL: No inventes métricas, números, porcentajes o hitos que no existan en el CV original.\n"
-        "- SIN TEXTOS DE RELLENO: Elimina comentarios de la IA, notas, introducciones y referencias."
+        "REGLAS DE FORMATO HORIZONTAL:\n"
+        "- ESTÁ PROHIBIDO EL USO DE GUIONES ('-'), asteriscos o cualquier tipo de viñeta.\n"
+        "- DESCRIPCIÓN DE EXPERIENCIAS Y PROYECTOS: Inmediatamente debajo de la metadata del puesto (Empresa | Ciudad | Fechas), escribe las funciones y logros como UN ÚNICO PÁRRAFO CONTINUO DE MÁXIMO 2 LÍNEAS. No desgloses en múltiples líneas.\n"
+        "- TECHNICAL SKILLS: Agrupa las tecnologías por categorías semánticas en líneas horizontales seguidas por dos puntos y separadas por comas. Ejemplo: 'Programming: Java, JavaScript. Databases: MongoDB. DevOps: Docker.' (Máximo 3 líneas en total para toda la sección).\n"
+        "- IDIOMAS Y SOFT SKILLS: Una única línea horizontal por sección utilizando barras verticales '|' como separadores.\n"
+        "- NO utilices sintaxis Markdown (sin '**', sin '#'). Separa las secciones únicamente con una línea en blanco y el título en MAYÚSCULAS."
     )
 
     contenido_usuario = (
