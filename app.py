@@ -398,36 +398,13 @@ def generar_pdf_desde_html(codigo_html):
             font-weight: bold;
             margin-top: 14px;
             margin-bottom: 4px;
-            color: #4A1525; /* Color Guinda/Vino premium del PDF de referencia */
-            border-bottom: 0.8px solid #4A1525; /* Línea divisoria elegante */
+            color: #4A1525; /* Color Guinda/Vino premium de texto sin líneas divisorias */
             text-transform: uppercase;
         }
         p {
             margin-top: 0px;
             margin-bottom: 4px;
-            text-align: justify;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 2px;
-            margin-bottom: 4px;
-        }
-        td {
-            padding: 2px 0px;
-            vertical-align: top;
-            font-size: 10pt;
-        }
-        /* Columna de categorías (Izquierda): Ancho fijo y compacta */
-        td.categoria {
-            width: 30%;
-            font-weight: bold;
-            color: #333333;
-        }
-        /* Columna de elementos (Derecha): Aprovecha el resto del folio */
-        td.elementos {
-            width: 70%;
-            color: #555555;
+            text-align: left; /* ALINEACIÓN ESTRICTA A LA IZQUIERDA PARA ATS */
         }
     </style>
     """
