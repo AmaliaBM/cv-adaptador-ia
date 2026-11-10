@@ -76,26 +76,20 @@ class _TextoDesdeHTML(HTMLParser):
 
 
 def limpiar_todo_para_ats(texto_html):
-    """Limpia profundamente HTML, Markdown, enlaces y comentarios finales."""
+    """Limpia profundamente HTML, Markdown, enlaces y unifica los saltos de línea."""
     if not texto_html:
         return ""
     
-    # 1. Eliminar etiquetas HTML completas
+    # 1. Eliminar etiquetas HTML completas y residuos
     texto = re.compile(r'<[^>]+>').sub('', texto_html)
-    
-    # 2. Eliminar residuos de etiquetas HTML cortadas al final
     texto = re.compile(r'</?[a-zA-Z]*\s*$').sub('', texto)
     
-    # 3. Eliminar marcadores de Markdown comunes (negritas) sin romper palabras
+    # 2. Eliminar marcadores Markdown
     texto = texto.replace('**', '').replace('__', '')
-    
-    # 4. Eliminar almohadillas de encabezados (#, ##) al inicio de las líneas
     texto = re.compile(r'^#+\s+', re.MULTILINE).sub('', texto)
-    
-    # 5. Limpiar formatos de enlaces Markdown [Texto](URL) dejando solo el Texto
     texto = re.compile(r'\[([^\]]+)\]\([^\)]+\)').sub(r'\1', texto)
     
-    # 6. Cortar comentarios finales intrusivos de la IA
+    # 3. Cortar comentarios finales intrusivos de la IA
     patrones_corte = [
         r"(?i)\bEste CV ha sido adaptado\b",
         r"(?i)\bNota:\b",
@@ -107,6 +101,10 @@ def limpiar_todo_para_ats(texto_html):
         if len(partes) > 1:
             texto = partes[0]
             
+    # 4. TRUCO DE INGENIERÍA: Unificar múltiples Enters continuos en saltos simples
+    # Esto evita que al pegar en Word se interprete como párrafos gigantes espaciados
+    texto = re.compile(r'\n\s*\n+').sub('\n\n', texto)
+    
     return texto.strip()
 
 def obtener_api_key_servidor():
@@ -367,41 +365,43 @@ with col2:
 # ---------------------------------------------------------------------
 # Vista previa y descarga CV nativo
 # ---------------------------------------------------------------------
-if st.session_state.cv_html:
-    st.write("### 💼 Tu CV Maquetado y Optimizado para ATS")
-    st.info("ℹ️ Selecciona el texto directamente del recuadro inferior y pégalo en tu editor para guardarlo.")
+if 'cv_html' in st.session_state and st.session_state['cv_html'] is not None:
+    st.write("### 💼 Tu CV Optimizado para ATS Listo")
     
-    # 1. Pasamos el texto por tu función limpiadora
-    texto_cv_limpio = limpiar_todo_para_ats(st.session_state.cv_html)
+    # Pasamos el contenido por la nueva limpiadora estricta de saltos
+    texto_cv_limpio = limpiar_todo_para_ats(st.session_state['cv_html'])
 
     if texto_cv_limpio:
-        # 2. Convertimos los saltos de línea planos en saltos web limpios
+        # Mostramos la visualización estética tipo hoja A4 aislada
         texto_formateado_web = texto_cv_limpio.replace("\n", "<br>")
-        
-        # 3. DISEÑO DE PLANTILLA ATS INYECTADO DIRECTAMENTE EN EL FRONTEND
-        # Replicamos el diseño de hoja A4 limpia (Tipografía Arial/Helvetica, 10px, márgenes estrechos)
         plantilla_estetica_ats = f"""
         <div style="
             background-color: #ffffff; 
             color: #333333; 
-            font-family: 'Helvetica', 'Arial', sans-serif; 
-            font-size: 10.5pt; 
+            font-family: 'Arial', sans-serif; 
+            font-size: 11pt; 
             line-height: 1.4; 
-            padding: 30px; 
-            border: 1px solid #e0e0e0; 
-            border-radius: 8px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            max-width: 800px;
+            padding: 25px; 
+            border: 1px solid #d0d0d0; 
+            border-radius: 6px;
+            max-width: 750px;
             margin: 0 auto;
         ">
             {texto_formateado_web}
         </div>
         """
-        
-        # Mostramos la hoja maquetada en pantalla
         st.html(plantilla_estetica_ats)
-        st.success("🎉 ¡Maquetación completada! El formato respeta los interlineados compactos para encajar en una sola hoja.")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # EL BOTÓN DE COPIAR COMPATIBLE: Al usar st.download_button con texto plano,
+        # o el componente nativo, forzamos la descarga del string limpio.
+        # Para que el usuario lo copie sin estilos web, usamos un st.text_area temporal o st.code de lectura
+        st.subheader("📋 Copia rápida sin formato")
+        st.info("Copia el texto desde este recuadro usando el botón de la esquina para evitar el espaciado gigante de Word.")
+        st.code(texto_cv_limpio, language=None, wrap_lines=True)
+        
     else:
         st.warning("La respuesta generada no contiene texto válido.")
+
 
 
