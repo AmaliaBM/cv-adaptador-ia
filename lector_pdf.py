@@ -1,27 +1,44 @@
+
 import pdfplumber
+
 
 def extraer_texto_pdf(archivo_pdf):
     """
-    Recibe un archivo PDF (ya sea una ruta o un objeto de archivo subido en Streamlit),
-    extrae el texto de todas sus páginas y lo devuelve como un único string.
+    Extrae el texto de todas las páginas de un PDF.
+    Admite rutas y archivos subidos mediante Streamlit.
     """
+
     texto_completo = ""
-    
+
     try:
-        # Abrimos el archivo PDF usando pdfplumber
+        if hasattr(archivo_pdf, "seek"):
+            archivo_pdf.seek(0)
+
         with pdfplumber.open(archivo_pdf) as pdf:
-            # Recorremos cada página del documento
+
+            if not pdf.pages:
+                return "Error al leer el archivo PDF: documento vacío."
+
             for pagina in pdf.pages:
-                # Extraemos el texto de la página actual
                 texto_pagina = pagina.extract_text()
-                
-                # Si la página contiene texto, lo añadimos al string completo
+
                 if texto_pagina:
                     texto_completo += texto_pagina + "\n"
-        
-        # Eliminamos espacios en blanco innecesarios al inicio y al final
-        return texto_completo.strip()
-        
+
+        texto_completo = texto_completo.strip()
+
+        if not texto_completo:
+            return (
+                "Error al leer el archivo PDF: "
+                "no se ha podido extraer texto. "
+                "Comprueba si es un PDF escaneado o protegido."
+            )
+
+        return texto_completo
+
     except Exception as e:
-        # Si algo falla (por ejemplo, un PDF corrupto o protegido), devolvemos el error
         return f"Error al leer el archivo PDF: {str(e)}"
+
+    finally:
+        if hasattr(archivo_pdf, "seek"):
+            archivo_pdf.seek(0)

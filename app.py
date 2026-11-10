@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 import re
@@ -333,6 +334,8 @@ with col2:
         elif not validar_firma_pdf(archivo_subido):
             st.error("⚠️ El archivo no tiene una firma PDF válida.")
         else:
+            fase = "extracción del texto del PDF"
+
             try:
                 with st.spinner(
                     "Analizando la oferta y adaptando tu CV..."
@@ -340,56 +343,70 @@ with col2:
                     archivo_subido.seek(0)
                     texto_cv = extraer_texto_pdf(archivo_subido)
 
-                    if not texto_cv or (
-                        isinstance(texto_cv, str)
-                        and texto_cv.startswith("Error al leer")
-                    ):
-                        st.error(
-                            texto_cv or "No se ha podido extraer texto del PDF."
-                        )
-                    else:
-                        cv_generado = adaptar_cv_con_ia(
-                            texto_cv, texto_oferta, api_key_a_usar
+                    if not texto_cv:
+                        raise ValueError(
+                            "El extractor no ha devuelto texto."
                         )
 
-                        if cv_generado and cv_generado.strip():
-                            st.session_state.cv_html = cv_generado
+                    if not isinstance(texto_cv, str):
+                        raise TypeError(
+                            f"El extractor ha devuelto un tipo inesperado: "
+                            f"{type(texto_cv).__name__}"
+                        )
 
-                            # Solo se contabiliza el uso cuando se consume
-                            # la clave del servidor, no cuando el usuario
-                            # introduce su propia clave.
-                            if not api_key_usuario.strip():
-                                usos_guardados += 1
-                                try:
-                                    cookies.set(COOKIE_USOS, str(usos_guardados))
-                                except Exception:
-                                    st.warning(
-                                        "No se pudo actualizar la cookie de uso "
-                                        "en este navegador."
-                                    )
+                    if texto_cv.startswith("Error al leer"):
+                        raise ValueError(texto_cv)
 
-                            st.success("🎉 ¡Tu CV ha sido adaptado!")
-                        else:
-                            st.error(
-                                "⚠️ La IA devolvió una respuesta vacía. "
-                                "Inténtalo de nuevo."
-                            )
+                    fase = "comunicación con la API de Groq"
+
+                    cv_generado = adaptar_cv_con_ia(
+                        texto_cv,
+                        texto_oferta,
+                        api_key_a_usar
+                    )
+
+                    fase = "validación de la respuesta de la IA"
+
+                    if not isinstance(cv_generado, str):
+                        raise TypeError(
+                            "La IA no ha devuelto una cadena de texto. "
+                            f"Tipo recibido: {type(cv_generado).__name__}"
+                        )
+
+                    if not cv_generado.strip():
+                        raise ValueError(
+                            "La IA ha devuelto una respuesta vacía."
+                        )
+
+                    st.session_state.cv_html = cv_generado
+
+                    if not api_key_usuario.strip():
+                        usos_guardados += 1
+                        cookies.set(
+                            COOKIE_USOS,
+                            str(usos_guardados)
+                        )
+
+                    st.success("🎉 ¡Tu CV ha sido adaptado!")
 
             except Exception as exc:
+
+                # Registra el error completo en los logs de Render.
+                logging.exception(
+                    "ERROR EN EL PROCESAMIENTO DEL CV. Fase: %s",
+                    fase
+                )
+
                 if "429" in str(exc):
                     st.error(
-                        "🛑 Se ha alcanzado temporalmente el límite de la API. "
-                        "Prueba más tarde o utiliza tu propia API Key."
+                        "🛑 Se ha alcanzado el límite temporal de la API. "
+                        "Inténtalo más tarde o utiliza tu propia API Key."
                     )
                 else:
                     st.error(
-                        "Hubo un problema al adaptar el CV. "
-                        "Revisa la configuración e inténtalo de nuevo."
+                        f"No se pudo completar el proceso durante: {fase}. "
+                        "Consulta los registros del servidor."
                     )
-                    # El detalle técnico queda en los logs del servidor,
-                    # no se expone al usuario.
-                    print(f"Error en adaptar_cv_con_ia: {exc}")
-
 
 # ---------------------------------------------------------------------
 # Vista previa y descarga del PDF nativo
