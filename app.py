@@ -367,24 +367,30 @@ with col2:
 # ---------------------------------------------------------------------
 # Vista previa y descarga CV nativo
 # ---------------------------------------------------------------------
-if st.session_state.cv_html:
-    st.write("### 📋 Tu CV Optimizado para ATS Listo")
-    st.info("💡 Usa el botón que aparece arriba a la derecha del recuadro para copiar todo el texto con un solo clic.")
-    
-    # 1. Aplicamos la limpieza profunda (fuera HTML, Markdown y comentarios de la IA)
-    texto_cv_limpio = limpiar_todo_para_ats(st.session_state.cv_html)
-
-    if texto_cv_limpio:
-        # 2. ENCAPSULADO EN RECUADRO CON BOTÓN DE COPIAR AUTOMÁTICO
-        # Al usar st.code con language=None, Streamlit crea el recuadro gris profesional 
-        # y añade el botón nativo de copiar en la esquina superior derecha.
-        st.code(
-            texto_cv_limpio,
-            language=None, # Mantiene el texto plano sin coloreado de código de programación
-            wrap_lines=True # Evita el scroll horizontal forzando saltos de línea limpios
-        )
+    # Renderizado seguro en el frontend tras pasar el filtro antibots
+    if 'cv_html' in st.session_state and st.session_state['cv_html'] is not None:
+        st.write("### 📋 Tu CV Optimizado para ATS Listo")
+        st.info("💡 Usa el botón que aparece arriba a la derecha del recuadro para copiar todo el texto con un solo clic.")
         
-        st.success("🎉 ¡Proceso completado! Copia el texto y pégalo en tu editor favorito (Word, Docs) para guardarlo como PDF.")
-    else:
-        st.warning("La respuesta generada no contiene texto que se pueda mostrar.")
+        texto_cv_limpio = limpiar_todo_para_ats(st.session_state['cv_html'])
+
+        if texto_cv_limpio:
+            st.code(texto_cv_limpio, language=None, wrap_lines=True)
+            
+            st.success("🎉 ¡Texto copiado con éxito!")
+            
+            # BLOQUE INFORMATIVO DE MAQUETACIÓN PARA EL USUARIO
+            st.markdown("---")
+            st.subheader("📝 Guía rápida para encajar tu CV en 1 página de Word")
+            st.write(
+                "Al pegar el texto en Microsoft Word, el formato por defecto puede estirar el documento. "
+                "Sigue estos 4 pasos rápidos para dejarlo impecable y compatible con ATS:\n\n"
+                "1. **Selecciona todo** (`Ctrl + E`) y cambia la fuente a **Arial o Calibri** con tamaño **10 puntos**.\n"
+                "2. **Configura el Interlineado:** Haz clic derecho, entra en *Párrafo* y pon el *Interlineado* en **Sencillo (1.0)** con *Espaciado Anterior y Posterior* en **0 pto**.\n"
+                "3. **Amplía los Márgenes:** Ve a la pestaña *Disposición* > *Márgenes* y selecciona **Estrecho (1,27 cm)**.\n"
+                "4. **Limpia líneas vacías:** Borra los espacios en blanco excesivos entre secciones para compactar el documento en una única hoja."
+            )
+        else:
+            st.warning("La respuesta generada no contiene texto que se pueda mostrar.")
+
 
