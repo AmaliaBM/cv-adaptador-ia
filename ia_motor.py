@@ -1,10 +1,13 @@
-import os
+
 from groq import Groq
+
 
 def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
     """
-    Adapta un CV a una oferta de empleo mediante Groq de forma limpia para ATS.
+    Adapta un CV a una oferta de empleo mediante Groq.
+    Devuelve el contenido generado por la IA.
     """
+
     if not api_key or not api_key.strip():
         raise ValueError("No se ha proporcionado una API Key de Groq.")
 
@@ -17,24 +20,24 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
     client = Groq(api_key=api_key.strip())
 
     prompt_sistema = (
-        "Eres un consultor experto en reclutamiento y marca profesional. Tu objetivo es reescribir y adaptar "
-        "el currículum del usuario para que encaje perfectamente con los requisitos de la oferta de empleo.\n\n"
+        "Eres un motor automatizado y estricto de optimización de currículums para sistemas ATS.\n\n"
         
-        "REGLAS ESTRICTAS DE REDACCIÓN Y SEGURIDAD:\n"
-        "1. HONESTIDAD TOTAL Y MÉTRICAS REALES: Prohibido terminantemente inventar empresas, títulos, tecnologías "
-        "o métricas cuantitativas (como inventar porcentajes de optimización del 20% o 30% si no venían explícitos "
-        "en el currículum original). Optimiza explicando los logros reales mediante el Método STAR sin alterar los datos.\n"
-        "2. CONSERVACIÓN DE DATOS ÚTILES: Mantén intacta toda la información esencial de contacto, nombres de tecnologías, "
-        "teléfonos, correos, certificaciones y datos numéricos originales.\n"
-        "3. PROHIBICIÓN DE MARKDOWN: Está estrictamente prohibido usar caracteres de marcado Markdown. No uses asteriscos "
-        "('**' o '*') para negritas/cursivas, ni almohadillas ('#', '##') para encabezados. Estructura los títulos escribiéndolos "
-        "en mayúsculas en una línea independiente seguida de un salto de línea.\n"
-        "4. RESALTADO EXCLUSIVO (HTML SPAN): La ÚNICA etiqueta permitida en tu respuesta es envolver las palabras clave, términos "
-        "o frases optimizadas entre las etiquetas: <span style='background-color: #fff3cd; color: #856404; padding: 2px 4px; border-radius: 4px; font-weight: 500;'> y </span>. "
-        "No uses listas HTML (<ul>, <li>), ni tablas, ni columnas, ni elementos decorativos.\n"
-        "5. PROHIBICIÓN DE COMENTARIOS Y AUTOPROMOCIÓN: Devuelve única y exclusivamente el texto adaptado del currículum. "
-        "No incluyas comentarios iniciales ni finales explicando lo que hiciste (ej: 'Aquí tienes tu CV adaptado...'). "
-        "No incluyas secciones artificiales de análisis como 'Alineación con la empresa'."
+        "REGLAS DE CONTENIDO CRÍTICAS:\n"
+        "1. HONESTIDAD ABSOLUTA (PROHIBIDO INVENTAR MÉTRICAS): No inventes NINGÚN porcentaje, número, "
+        "métrica de éxito, fecha o nombre de empresa que no esté explícitamente en el CV original. Si el usuario "
+        "no proporciona un número (ej. '%'), tú NO debes crearlo. Optimiza usando sus datos reales.\n"
+        "2. SIN TEXTO COMPLEMENTARIO NI RELLENO: No añadas secciones genéricas como 'Referencias', 'Disponibilidad' "
+        "ni frases de cortesía al inicio o al final. No saludes ni des explicaciones de lo que has hecho.\n"
+        "3. PERFIL PROFESIONAL ULTRA-COMPACTO: El resumen profesional inicial debe tener una extensión máxima de 3 líneas.\n"
+        "4. PALABRAS CLAVE: Adapta los nombres de las tecnologías y metodologías para que coincidan exactamente con "
+        "los términos técnicos utilizados en la Oferta de Empleo proporcionada.\n\n"
+        
+        "REGLAS DE FORMATO ESTRICTAS:\n"
+        "- NO uses sintaxis Markdown (sin asteriscos '**', sin almohadillas '#').\n"
+        "- NO uses etiquetas HTMLcomplejas.\n"
+        "- Para separar secciones, usa una línea en blanco y escribe el título de la sección en MAYÚSCULAS "
+        "(ej. EXPERIENCIA PROFESIONAL).\n"
+        "- Para los logros, utiliza única y exclusivamente un guion normal '-' al inicio de la línea."
     )
 
     contenido_usuario = (
@@ -52,6 +55,7 @@ def adaptar_cv_con_ia(texto_cv, texto_oferta, api_key):
         max_tokens=3000
     )
 
+    # IMPORTANTE: choices es una lista.
     if not completation.choices:
         raise RuntimeError("Groq no ha devuelto ninguna respuesta.")
 
